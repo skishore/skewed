@@ -1,16 +1,18 @@
-/* For sockaddr_in */
+// For sockaddr_in.
 #include <netinet/in.h>
-/* For socket functions */
+// For free, which we need to destroy malloc-ed buffers.
+#include <stdlib.h>
+// For sockaddr, sockaddr_storage, bind, listen, etc.
 #include <sys/socket.h>
+// For close, which we need to close sockets.
+#include <unistd.h>
 
+// The actual imports of the libevent library.
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <memory>
 
 #define MAX_LINE 16384
 #define LOG(...) printf(__VA_ARGS__); printf("\n")
@@ -24,9 +26,9 @@ char rot13_char(char c) {
   return c;
 }
 
-void read_callback(struct bufferevent* bev, void* context) {
-  struct evbuffer* input = bufferevent_get_input(bev);
-  struct evbuffer* output = bufferevent_get_output(bev);
+void read_callback(bufferevent* bev, void* context) {
+  evbuffer* input = bufferevent_get_input(bev);
+  evbuffer* output = bufferevent_get_output(bev);
 
   char* line;
   size_t n;
@@ -53,7 +55,7 @@ void read_callback(struct bufferevent* bev, void* context) {
   }
 }
 
-void event_callback(struct bufferevent* bev, short error, void* context) {
+void event_callback(bufferevent* bev, short error, void* context) {
   // User error & BEV_EVENT_x to determine which event type occurred.
   // EOF indicates that the client closed their socket, ERROR indicates a
   // transport layer error, and TIMEOUT is only issued if this was the
@@ -62,11 +64,13 @@ void event_callback(struct bufferevent* bev, short error, void* context) {
 }
 
 void accept_callback(evutil_socket_t listener, short event, void *arg) {
-  struct event_base* base = arg;
-  struct sockaddr_storage their_addr;
-  socklen_t size = sizeof(their_addr);
+  event_base* base = static_cast<event_base*>(arg);
 
-  int fd = accept(listener, (struct sockaddr*)&their_addr, &size);
+  sockaddr_storage full_client_addr;
+  socklen_t client_size = sizeof(full_client_addr);
+  sockaddr* client_addr = reinterpret_cast<sockaddr*>(&full_client_addr);
+
+  int fd = accept(listener, client_addr, &client_size);
 
   if (fd < 0) {
     LOG("Got invalid fd: %d", fd);
@@ -76,7 +80,7 @@ void accept_callback(evutil_socket_t listener, short event, void *arg) {
     char host[NI_MAXHOST];
     char port[NI_MAXSERV];
     int rc = getnameinfo(
-      (struct sockaddr*)&their_addr, size, host, sizeof(host), port, sizeof(port),
+      client_addr, client_size, host, sizeof(host), port, sizeof(port),
       NI_NUMERICHOST | NI_NUMERICSERV);
     if (rc == 0) {
       LOG("Accepted connection from %s:%s", host, port);
@@ -84,9 +88,8 @@ void accept_callback(evutil_socket_t listener, short event, void *arg) {
       LOG("Accepted connection from unknown host!");
     }
 
-    struct bufferevent* bev;
     evutil_make_socket_nonblocking(fd);
-    bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
+    bufferevent* bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
     bufferevent_setcb(bev, read_callback, NULL, event_callback, NULL);
     bufferevent_setwatermark(bev, EV_READ, 0, MAX_LINE);
     bufferevent_enable(bev, EV_READ|EV_WRITE);
@@ -94,16 +97,18 @@ void accept_callback(evutil_socket_t listener, short event, void *arg) {
 }
 
 bool run(void) {
-  struct event_base* base = event_base_new();
+  event_base* base = event_base_new();
   if (!base) {
     LOG("Failed to initialize base!");
     return false;
   }
 
-  struct sockaddr_in sin;
-  sin.sin_family = AF_INET;
-  sin.sin_addr.s_addr = 0;
-  sin.sin_port = htons(1618);
+  sockaddr_in full_server_addr;
+  std::memset(&full_server_addr, 0, sizeof(full_server_addr));
+  full_server_addr.sin_family = AF_INET;
+  full_server_addr.sin_addr.s_addr = 0;
+  full_server_addr.sin_port = htons(1618);
+  sockaddr* server_addr = reinterpret_cast<sockaddr*>(&full_server_addr);
 
   evutil_socket_t listener = socket(AF_INET, SOCK_STREAM, 0);
   evutil_make_socket_nonblocking(listener);
@@ -115,7 +120,7 @@ bool run(void) {
   }
 #endif
 
-  if (bind(listener, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
+  if (bind(listener, server_addr, sizeof(full_server_addr)) < 0) {
     LOG("Failed to bind socket!");
     return false;
   }
@@ -125,7 +130,7 @@ bool run(void) {
     return false;
   }
 
-  struct event* listener_event = event_new(
+  event* listener_event = event_new(
       base, listener, EV_READ|EV_PERSIST, accept_callback, (void*)base);
   if (!listener_event) {
     LOG("Failed to create listener_event!");
