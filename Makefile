@@ -4,7 +4,7 @@ OBJ_FILES := $(addprefix $(BUILD)/,$(notdir $(CPP_FILES:.cpp=.o)))
 EXECUTABLE := $(BUILD)/main
 
 CC := clang++
-CC_FLAGS := -Wall -std=c++11 -stdlib=libc++
+CC_FLAGS := -Wall -std=c++11 -stdlib=libc++ -levent
 LD_FLAGS := $(CC_FLAGS)
 
 all: $(EXECUTABLE)
