@@ -24,9 +24,9 @@ class Connection : Transport {
 
  private:
   Connection(bufferevent* bev, evutil_socket_t fd) : closed_(true) {
-    CHECK_NOTNULL(bev);
+    DCHECK_NOTNULL(bev);
     output_ = bufferevent_get_output(bev);
-    CHECK_NOTNULL(output_);
+    DCHECK_NOTNULL(output_);
     closed_ = false;
   }
 

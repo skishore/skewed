@@ -13,7 +13,8 @@
 #include <event2/bufferevent.h>
 #include <event2/event.h>
 #include <event2/listener.h>
-#include "skewed/connection.h"
+#include "skewed/protocol.h"
+#include "skewed/server_factory.h"
 
 #define MAX_LINE 16384
 #define LOG(...) printf(__VA_ARGS__); printf("\n")
@@ -23,14 +24,24 @@ struct ClientContext {
   char port[NI_MAXSERV];
 };
 
-char rot13_char(char c) {
-  if ((c >= 'a' && c <= 'm') || (c >= 'A' && c <= 'M')) {
-    return c + 13;
-  } else if ((c >= 'n' && c <= 'z') || (c >= 'N' && c <= 'Z')) {
-    return c - 13;
-  } 
-  return c;
-}
+class Rot13Protocol : skewed::Protocol {
+ public:
+  void data_received(std::string* data) override {
+    for (int i = 0; i < data->size(); i++) {
+      (*data)[i] = rot13_char((*data)[i]);
+    }
+    transport_->write(*data);
+  }
+
+  static char rot13_char(char c) {
+    if ((c >= 'a' && c <= 'm') || (c >= 'A' && c <= 'M')) {
+      return c + 13;
+    } else if ((c >= 'n' && c <= 'z') || (c >= 'N' && c <= 'Z')) {
+      return c - 13;
+    }
+    return c;
+  }
+};
 
 void read_callback(bufferevent* bev, void* context) {
   evbuffer* input = bufferevent_get_input(bev);
@@ -40,7 +51,7 @@ void read_callback(bufferevent* bev, void* context) {
   size_t n;
   while ((line = evbuffer_readln(input, &n, EVBUFFER_EOL_LF))) {
     for (int i = 0; i < n; ++i) {
-      line[i] = rot13_char(line[i]);
+      line[i] = Rot13Protocol::rot13_char(line[i]);
     }
     evbuffer_add(output, line, n);
     evbuffer_add(output, "\n", 1);
@@ -53,7 +64,7 @@ void read_callback(bufferevent* bev, void* context) {
     while (evbuffer_get_length(input)) {
       n = evbuffer_remove(input, buffer, sizeof(buffer));
       for (int i = 0; i < n; ++i) {
-        buffer[i] = rot13_char(buffer[i]);
+        buffer[i] = Rot13Protocol::rot13_char(buffer[i]);
       }
       evbuffer_add(output, buffer, n);
     }

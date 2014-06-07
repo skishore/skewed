@@ -1,4 +1,4 @@
-// Transport is simply an interface that allows writes to a socket.
+// The Transport interface allows the user to write to or close a connection.
 //
 // This interface is implemented by the Connection object, which also maintains
 // the connection status and takes care of cleanup when it is closed.
