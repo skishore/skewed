@@ -8,12 +8,22 @@
 
 #include <string>
 
+#include "address.h"
+
 namespace skewed {
 
 class Transport {
  public:
+  virtual const Address& address() const = 0;
+
   virtual void write(const std::string& message) = 0;
+  // lose_connection must be called within one of a Protocol's callbacks,
+  // otherwise its behavior is undefined. In addition, the behavior of write
+  // after a call to lose_connection is undefined.
   virtual void lose_connection() = 0;
+
+ protected:
+  virtual ~Transport() {};
 };
 
 }  // namespace skewed
