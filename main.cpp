@@ -7,13 +7,13 @@
 // For close, which we need to close sockets.
 #include <unistd.h>
 
-// The actual imports of the libevent library.
+#include <memory>
+
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/event.h>
 #include <event2/listener.h>
-
-#include <memory>
+#include "skewed/connection.h"
 
 #define MAX_LINE 16384
 #define LOG(...) printf(__VA_ARGS__); printf("\n")
