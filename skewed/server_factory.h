@@ -30,6 +30,9 @@ namespace skewed {
 
 class ServerFactory {
  public:
+  ServerFactory() : event_base_(nullptr, event_base_free),
+      listener_(nullptr, evconnlistener_free) {}
+
   // Override this to get a server that implements a new protocol.
   // This method should not take ownership of address.
   virtual Protocol* build_protocol(const Address& address) {
@@ -43,9 +46,9 @@ class ServerFactory {
   // will never be cleaned up. This doesn't matter much at the moment, because
   // no binary that calls run does anything afterwards but run the server...
   bool run(int port) {
-    event_base_ = event_base_new();
-    if (!event_base_) {
-      LOG("Failed to initialize base!");
+    event_base_.reset(event_base_new());
+    if (event_base_.get() == nullptr) {
+      DLOG("Failed to initialize base!");
       return false;
     }
 
@@ -56,23 +59,18 @@ class ServerFactory {
     full_server_addr.sin_port = htons(port);
     sockaddr* server_addr = reinterpret_cast<sockaddr*>(&full_server_addr);
 
-    listener_ = evconnlistener_new_bind(
-        event_base_, handle_accept, this,
+    listener_.reset(evconnlistener_new_bind(
+        event_base_.get(), handle_accept, this,
         LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
         -1 /* let libevent set backlog */,
-        server_addr, sizeof(full_server_addr));
+        server_addr, sizeof(full_server_addr)));
     if (!listener_) {
-      LOG("Failed to create connection listener!");
+      DLOG("Failed to create connection listener!");
       return false;
     }
 
-    event_base_dispatch(event_base_);
+    event_base_dispatch(event_base_.get());
     return true;
-  }
-
-  ~ServerFactory() {
-    if (listener_ != nullptr) evconnlistener_free(listener_);
-    if (event_base_ != nullptr) event_base_free(event_base_);
   }
 
  private:
@@ -117,8 +115,8 @@ class ServerFactory {
     new Connection(address.release(), bev, protocol);
   }
 
-  event_base* event_base_;
-  evconnlistener* listener_;
+  std::unique_ptr<event_base, void(*)(event_base*)> event_base_;
+  std::unique_ptr<evconnlistener, void(*)(evconnlistener*)> listener_;
 };
 
 }  // namespace skewed

@@ -23,7 +23,7 @@ const int kMaxChunkSize = 16384;
 
 class Connection : Transport {
  public:
-  // Implement the three methods needed for the Transport interface.
+  // Implement the methods needed for the Transport interface.
 
   const Address& address() const override { return *address_; }
 
@@ -35,7 +35,9 @@ class Connection : Transport {
 
  private:
   Connection(Address* address, bufferevent* bev, Protocol* protocol) :
-      closed_(false), address_(address), protocol_(protocol), bev_(bev) {
+      closed_(false), address_(address), protocol_(protocol),
+      // The output_ buffer is owned by the bufferevent.
+      bev_(bev, bufferevent_free) {
     DCHECK_NOTNULL(address);
     DCHECK_NOTNULL(bev);
     DCHECK_NOTNULL(protocol);
@@ -56,7 +58,7 @@ class Connection : Transport {
   static void handle_read(bufferevent* bev, void* context) {
     DCHECK_NOTNULL(context);
     Connection* connection = static_cast<Connection*>(context);
-    DCHECK(connection->bev_ == bev);
+    DCHECK(connection->bev_.get() == bev);
 
     evbuffer* input = bufferevent_get_input(bev);
     DCHECK_NOTNULL(input);
@@ -91,16 +93,11 @@ class Connection : Transport {
     delete connection;
   }
 
-  ~Connection() {
-    // Also frees the and output buffer. (I hope... -skishore)
-    bufferevent_free(bev_);
-  }
-
   bool closed_;
   std::unique_ptr<Address> address_;
   std::unique_ptr<Protocol> protocol_;
 
-  bufferevent* bev_;
+  std::unique_ptr<bufferevent, void(*)(bufferevent*)> bev_;
   evbuffer* output_;
 
   DISALLOW_COPY_AND_ASSIGN(Connection);
