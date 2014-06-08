@@ -1,6 +1,8 @@
 #ifndef LIB_SKEWED_ADDRESS
 #define LIB_SKEWED_ADDRESS
 
+#include <string>
+
 #include <netdb.h>
 #include "macros.h"
 
@@ -11,12 +13,19 @@ struct Address {
   // address was invalid. If so, this struct is not in a valid state.
   //
   // Does not take ownership of the passed pointers.
-  bool set(sockaddr* addr, int size, int* error) {
+  bool set(const sockaddr& addr, int size, int* error) {
     DCHECK(error);
     *error = getnameinfo(
-        addr, size, host, NI_MAXHOST, port, NI_MAXSERV,
+        &addr, size, host, NI_MAXHOST, port, NI_MAXSERV,
         NI_NUMERICHOST | NI_NUMERICSERV);
     return *error == 0;
+  }
+
+  std::string text() const {
+    int max_size = NI_MAXHOST + NI_MAXSERV + 1;
+    char buffer[max_size];
+    int size = snprintf(buffer, max_size, "%s %s", host, port);
+    return std::string(buffer, size);
   }
 
   char host[NI_MAXHOST];

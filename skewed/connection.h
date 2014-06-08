@@ -15,6 +15,7 @@ namespace skewed {
 
 class Connection : Transport {
  public:
+  // These three methods are needed to implement the Transport interface.
   const Address& address() const override { return *address_; }
 
   void write(const std::string& data) override {
@@ -23,7 +24,8 @@ class Connection : Transport {
 
   void lose_connection() override { closed_ = true; }
 
-  void handle_read(std::string* data) { protocol_->data_received(data); }
+  void handle_read(const std::string& data) { protocol_->data_received(data); }
+
   void handle_close() { protocol_->connection_lost(); }
 
   bool closed() const { return closed_; }

@@ -48,20 +48,15 @@ class ServerFactory {
  public:
   // Override this to get a server that implements a new protocol.
   // This method should not take ownership of address.
-  virtual Protocol* build_protocol(Address* address) { return new Protocol(); }
+  virtual Protocol* build_protocol(const Address& address) {
+    return new Protocol();
+  }
 
   // Blocks on success. Returns false on failure.
   bool run(int port);
 
   // Member function that corresponds to the libevent accept callback.
   void handle_accept(evconnlistener*, evutil_socket_t, sockaddr*, int);
-
-  // Returns true if the given connection has not been closed yet.
-  bool active(Connection* connection) {
-    DCHECK_NOTNULL(connection);
-    return !connection->closed() &&
-        connections_.find(connection) != connections_.end();
-  }
 
   ~ServerFactory() {
     if (listener_ != nullptr) evconnlistener_free(listener_);
@@ -70,7 +65,8 @@ class ServerFactory {
 
   // Creates a connection, registers in in the connection set, and returns it.
   Connection* register_connection(Address* address, bufferevent* bev) {
-    Protocol* protocol = build_protocol(address);
+    DCHECK_NOTNULL(address);
+    Protocol* protocol = build_protocol(*address);
     Connection* connection = new Connection(address, bev, protocol);
     connections_.insert(connection);
     return connection;
@@ -119,7 +115,7 @@ void read_callback(bufferevent* bev, void* context) {
       int bytes_read = evbuffer_remove(input, buffer, chunk_size);
       DCHECK(read > 0);
       std::string data(buffer, bytes_read);
-      connection->handle_read(&data);
+      connection->handle_read(data);
       if (connection->closed()) {
         server->drop_connection(connection);
         return;
@@ -159,7 +155,7 @@ void ServerFactory::handle_accept(
   // Retrieve an address for the newly connected client. If this fails, abort.
   std::unique_ptr<Address> address(new Address);
   int error;
-  if (!address->set(client_addr, client_addr_size, &error)) {
+  if (!address->set(*client_addr, client_addr_size, &error)) {
     DLOG("Error setting client address: %d", error);
     close(fd);
     return;

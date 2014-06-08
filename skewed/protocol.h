@@ -12,33 +12,32 @@
 
 namespace skewed {
 
+class Connection;
+
 class Protocol {
  public:
   Protocol() : transport_(nullptr) {};
 
-  // Overload these event callbacks to define a new protocol.
   virtual void connection_made() {
-    DLOG("Connection made: %s %s",
-        transport_->address().host, transport_->address().port);
-  };
-  // data_received does not take ownership of the data, but it may mutate it.
-  // data is guaranteed to not be NULL.
-  virtual void data_received(std::string* data) {};
-  virtual void connection_lost() {
-    DLOG("Connection lost: %s %s",
-        transport_->address().host, transport_->address().port);
+    DLOG("Connection made: %s", transport_->address().text().c_str());
   };
 
+  virtual void data_received(const std::string& data) {};
+
+  virtual void connection_lost() {
+    DLOG("Connection lost: %s", transport_->address().text().c_str());
+  };
+
+ protected:
   void make_connection(Transport* transport) {
     DCHECK_NOTNULL(transport);
     transport_ = transport;
   }
 
- protected:
   Transport* transport_;
 
-  friend class Transport;
   DISALLOW_COPY_AND_ASSIGN(Protocol);
+  friend class Connection;
 };
 
 }  // namespace skewed

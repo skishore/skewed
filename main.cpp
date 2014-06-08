@@ -4,11 +4,12 @@
 
 class Rot13Protocol : public skewed::Protocol {
  public:
-  void data_received(std::string* data) override {
-    for (int i = 0; i < data->size(); i++) {
-      (*data)[i] = rot13_char((*data)[i]);
+  void data_received(const std::string& data) override {
+    std::string result(data);
+    for (int i = 0; i < result.size(); i++) {
+      result[i] = rot13_char(result[i]);
     }
-    transport_->write(*data);
+    transport_->write(result);
   }
 
   static char rot13_char(char c) {
@@ -22,7 +23,8 @@ class Rot13Protocol : public skewed::Protocol {
 };
 
 class Rot13Server : public skewed::ServerFactory {
-  virtual skewed::Protocol* build_protocol(skewed::Address* address) override {
+  virtual skewed::Protocol* build_protocol(
+      const skewed::Address& address) override {
     return new Rot13Protocol();
   }
 };
