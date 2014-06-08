@@ -9,19 +9,16 @@
 namespace skewed {
 
 struct Address {
-  // Returns false if it fails to parse the given socket address or if the
-  // address was invalid. If so, this struct is not in a valid state.
-  //
-  // Does not take ownership of the passed pointers.
-  bool set(const sockaddr& addr, int size, int* error) {
-    DCHECK(error);
+  // Sets error to a nonzero value if it fails to parse the given socket
+  // address. If so, this struct is not in a valid state.
+  Address(const sockaddr& addr, int addr_size, int* error) {
+    DCHECK_NOTNULL(error);
     *error = getnameinfo(
-        &addr, size, host, NI_MAXHOST, port, NI_MAXSERV,
+        &addr, addr_size, host, NI_MAXHOST, port, NI_MAXSERV,
         NI_NUMERICHOST | NI_NUMERICSERV);
-    return *error == 0;
   }
 
-  std::string text() const {
+  const std::string text() const {
     int max_size = NI_MAXHOST + NI_MAXSERV + 1;
     char buffer[max_size];
     int size = snprintf(buffer, max_size, "%s %s", host, port);
@@ -30,6 +27,8 @@ struct Address {
 
   char host[NI_MAXHOST];
   char port[NI_MAXSERV];
+
+  DISALLOW_COPY_AND_ASSIGN(Address);
 };
 
 }  // namespace skewed

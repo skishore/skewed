@@ -16,14 +16,18 @@ class Connection;
 
 class Protocol {
  public:
+  // Override this method or add new constructors as needed by your protocol.
   Protocol() : transport_(nullptr) {};
 
+  // Override this method to respond to a client connection.
   virtual void connection_made() {
     DLOG("Connection made: %s", transport_->address().text().c_str());
   };
 
+  // Override this method to respond to data the client sends.
   virtual void data_received(const std::string& data) {};
 
+  // Override this method to respond to a client disconnect.
   virtual void connection_lost() {
     DLOG("Connection lost: %s", transport_->address().text().c_str());
   };
@@ -32,6 +36,7 @@ class Protocol {
   void make_connection(Transport* transport) {
     DCHECK_NOTNULL(transport);
     transport_ = transport;
+    connection_made();
   }
 
   Transport* transport_;
