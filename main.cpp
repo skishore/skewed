@@ -1,6 +1,5 @@
-#include "skewed/address.h"
 #include "skewed/protocol.h"
-#include "skewed/server_factory.h"
+#include "skewed/basic_server_factory.h"
 
 class Rot13Protocol : public skewed::Protocol {
  public:
@@ -22,15 +21,8 @@ class Rot13Protocol : public skewed::Protocol {
   }
 };
 
-class Rot13Server : public skewed::ServerFactory {
-  virtual skewed::Protocol* build_protocol(
-      const skewed::Address& address) override {
-    return new Rot13Protocol();
-  }
-};
-
 int main(int argc, char **argv) {
   setvbuf(stdout, NULL, _IONBF, 0);
-  Rot13Server server;
+  skewed::BasicServerFactory<Rot13Protocol> server;
   return (server.run(1618) ? 0 : 1);
 }
